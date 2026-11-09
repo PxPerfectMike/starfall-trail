@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Starfall Trail |cff8fa3b8(Eastern Kingdoms paths)|r
+## Notes: Walkable-area map of Eastern Kingdoms for Starfall Trail. Loads by itself when you are there.
+## Author: PxPerfectMike
+## Version: 1.0.0
+## Dependencies: StarfallTrail
+## LoadOnDemand: 1
+
+Mesh.lua

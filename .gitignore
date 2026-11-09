@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.npy
+
+# Generated walkable-area data (tools/build_world.sh rebuilds it from the game files; ~70 MB)
+StarfallTrail_*/Mesh.lua
+dist/
+branding/*.psd
