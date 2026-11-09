@@ -5,6 +5,7 @@
 ## Version: 1.0.0
 ## OptionalDeps: Questie
 ## X-License: MIT
+## X-Curse-Project-ID: 1793911
 ## X-Website: https://github.com/PxPerfectMike/starfall-trail
 ## IconTexture: Interface\AddOns\StarfallTrail\Media\icon.png
 ## SavedVariables: StarfallTrailDB
