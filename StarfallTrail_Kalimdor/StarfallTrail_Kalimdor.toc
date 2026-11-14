@@ -2,7 +2,7 @@
 ## Title: Starfall Trail |cff8fa3b8(Kalimdor paths)|r
 ## Notes: Walkable-area map of Kalimdor for Starfall Trail. Loads by itself when you are there.
 ## Author: PxPerfectMike
-## Version: 1.0.0
+## Version: 1.1.0
 ## Dependencies: StarfallTrail
 ## LoadOnDemand: 1
 

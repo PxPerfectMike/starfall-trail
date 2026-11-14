@@ -2,7 +2,8 @@
 
 A World of Warcraft: Forever addon that walks you to your next quest objective: a glowing trail of
 sparkles on the ground along a real walkable route, and a smooth 3D arrow that turns with your camera.
-It reads the quest you focus in [Questie](https://www.curseforge.com/wow/addons/questie).
+It reads the quest you focus in [Questie](https://www.curseforge.com/wow/addons/questie), and it can
+lead you to a party member instead.
 
 ![logo](branding/logo.png)
 
@@ -14,6 +15,8 @@ It reads the quest you focus in [Questie](https://www.curseforge.com/wow/addons/
   turn the camera.
 - The text under the arrow says what to do ("Kill 7 Thistle Boar", "Turn in to ...").
 - In a quest area the arrow and the trail fade out until you leave.
+- Pick a party member (minimap menu, right-click, or `/sft friend <name>`) and the arrow and the
+  trail lead to them until you clear the choice or they leave the group. Outdoors only.
 
 See [branding/curseforge-description.md](branding/curseforge-description.md) for the full feature
 list and commands (`/starfall`, `/sft`).
@@ -22,7 +25,7 @@ list and commands (`/starfall`, `/sft`).
 
 | Path | What it is |
 |---|---|
-| `StarfallTrail/` | The addon: arrow (`StarfallTrail.lua`), route search (`Nav.lua`), trail (`Trail.lua`), minimap menu (`Menu.lua`), arrow sprite metadata (`Frames.lua`), diagnostics (`Probe.lua`). |
+| `StarfallTrail/` | The addon: arrow (`StarfallTrail.lua`), route search (`Nav.lua`), trail (`Trail.lua`), minimap menu (`Menu.lua`), followed party member (`Friend.lua`), arrow sprite metadata (`Frames.lua`), diagnostics (`Probe.lua`). |
 | `StarfallTrail_Kalimdor/`, `StarfallTrail_EasternKingdoms/` | Load-on-demand data addons with each continent's walkable-area map. `Mesh.lua` is generated (see below) and not in git. |
 | `tools/` | Map building (`build_world.sh`, `build_navgrid.py`, `build_navmesh.py`), art (`render_arrow.py`, `render_logo.py`), camera fitting, packaging. |
 | `tools/trinitycore/` | The patch and build scripts for TrinityCore's map tools, which produce the walkable-area tiles. |

@@ -103,6 +103,57 @@ function ns.ProbeReport()
 	Out("self nameplate: " .. (plate and string.format("%.1f, %.1f from screen center", plate.x, plate.y) or why))
 end
 
+-- Group positions: what the client gives addons for each party or raid member. Run it in a group,
+-- outdoors, to check that the arrow can follow a person (/sft probe party).
+function ns.ProbeParty()
+	log = {}
+	if StarfallTrailDB then
+		StarfallTrailDB.probeLog = log
+	end
+	Out("---- group positions ----")
+	local units = { "player" }
+	if IsInRaid and IsInRaid() then
+		for i = 1, GetNumGroupMembers() do
+			units[#units + 1] = "raid" .. i
+		end
+	else
+		for i = 1, 4 do
+			units[#units + 1] = "party" .. i
+		end
+	end
+	local found = 0
+	for _, unit in ipairs(units) do
+		if UnitExists(unit) then
+			found = found + 1
+			Out(unit .. " = " .. Describe(UnitName(unit)) .. ", guid " .. Describe(UnitGUID(unit)))
+			if UnitPosition then
+				local ok, a, b, c, d = pcall(UnitPosition, unit)
+				Out("  UnitPosition: " .. (ok and (Describe(a) .. ", " .. Describe(b) .. ", " .. Describe(c) .. ", " .. Describe(d))
+					or ("error " .. tostring(a))))
+			else
+				Out("  UnitPosition: missing")
+			end
+			local mapId = C_Map and C_Map.GetBestMapForUnit and C_Map.GetBestMapForUnit(unit)
+			local okPos, pos = pcall(function()
+				return mapId and C_Map.GetPlayerMapPosition(mapId, unit)
+			end)
+			if okPos and pos and not (issecretvalue and issecretvalue(pos)) then
+				local x, y = pos:GetXY()
+				Out("  map " .. Describe(mapId) .. " position: " .. Describe(x) .. ", " .. Describe(y))
+			else
+				Out("  map " .. Describe(mapId) .. " position: " .. (okPos and "none" or "error"))
+			end
+			if unit ~= "player" then
+				local x, y, instance = ns.Friend.Position(unit)
+				Out("  arrow can use it: " .. (x and string.format("yes (%.1f, %.1f, map %s)", x, y, tostring(instance)) or "NO"))
+			end
+		end
+	end
+	if found <= 1 then
+		Out("you are not in a group: join one and run this again.")
+	end
+end
+
 -- Live readout: zoom, mouselook and the self nameplate's screen offset, refreshed every frame.
 local live = CreateFrame("Frame", nil, UIParent)
 live:SetSize(420, 120)

@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: Starfall Trail
-## Notes: A smooth 3D arrow and a sparkle trail on the ground that lead you to your focused Questie quest.
+## Notes: A smooth 3D arrow and a sparkle trail on the ground that lead you to your focused Questie quest, or to a party member you pick.
 ## Author: PxPerfectMike
-## Version: 1.0.0
+## Version: 1.1.0
 ## OptionalDeps: Questie
 ## X-License: MIT
 ## X-Curse-Project-ID: 1793911
@@ -14,5 +14,6 @@ Frames.lua
 Nav.lua
 Trail.lua
 Probe.lua
+Friend.lua
 Menu.lua
 StarfallTrail.lua

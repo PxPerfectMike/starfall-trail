@@ -12,7 +12,11 @@ Usage: `python <script>.py <folder with lupa/luaparser>` from this folder.
 - `meshtest.py` / `meshroutes.py`: navigation-mesh routes between known Teldrassil spots.
 - `heightwalk.py`: how smoothly the trail's reference height changes along a route.
 - `meshlong.py`: loads a continent's data addon and times random long routes (the current data).
+- `friendtest.py`: the followed party member (`Friend.lua`): roster, name matching, position guards,
+  leaving the group. Needs no map data.
+- `friendsmoke.py`: loads the whole addon with stubbed APIs and follows a party member through the
+  arrow, the minimap menu, the right-click entry and the slash commands. Needs no map data.
 - `tunefilter.py`: tunes the position filter on a recorded walk (`/sft trail log`).
 
-The scripts other than `meshlong.py` were written against the earlier Teldrassil-only data
+The scripts other than `meshlong.py`, `friendtest.py` and `friendsmoke.py` were written against the earlier Teldrassil-only data
 (`WayfinderMesh_Teldrassil.lua`, `tools/data/WayfinderData_Teldrassil.lua`) and need that data to run.

@@ -21,6 +21,8 @@ local SPRING = 11               -- arrow turn responsiveness (critically damped)
 local AUTO_INTERVAL = 2         -- seconds between closest-quest scans
 local AUTO_SWITCH_YARDS = 30    -- a new closest quest must be this much nearer...
 local AUTO_SWITCH_RATIO = 0.75  -- ...and at most this fraction of the current distance
+local FRIEND_INTERVAL = 0.2     -- seconds between position lookups while following a group member
+local FRIEND_DIRECT_YARDS = 40  -- this close to them, point straight at them, not along the route
 
 local DEFAULTS = {
 	point = "TOP",
@@ -32,7 +34,7 @@ local DEFAULTS = {
 	trail = true,
 	arrow = true,       -- the 3D arrow itself
 	text = true,        -- distance and quest name under the arrow
-	minimapAngle = 200, -- position of the minimap button around the rim, in degrees
+	minimapAngle = 270, -- position of the minimap button around the rim, in degrees
 	minimapHidden = false,
 }
 
@@ -320,6 +322,11 @@ local function FindTarget(autoQuestId)
 	if corpse then
 		return corpse
 	end
+	-- A followed group member replaces quests until they are cleared or leave the group.
+	local okFriend, friend = pcall(ns.Friend.Target)
+	if okFriend and friend then
+		return friend
+	end
 	local questId = GetFocusedQuestId()
 	local auto = false
 	if not questId and autoQuestId then
@@ -531,6 +538,10 @@ local function RefreshTarget()
 	if newKey and newKey ~= previousKey then
 		ResetForNewTarget(nil)
 	end
+	-- A person moves, so their position is read more often than a quest spot.
+	if state.target and state.target.friend then
+		state.lookupTimer = FRIEND_INTERVAL
+	end
 end
 
 local function OnUpdate(_, elapsed)
@@ -541,7 +552,7 @@ local function OnUpdate(_, elapsed)
 	state.autoTimer = state.autoTimer - dt
 	if state.autoTimer <= 0 then
 		state.autoTimer = AUTO_INTERVAL
-		if db.autoFocus and not state.testMode and not GetFocusedQuestId() then
+		if db.autoFocus and not state.testMode and not GetFocusedQuestId() and not ns.Friend.Get() then
 			local bestId, bestDistance, currentDistance = FindClosestQuest(state.autoQuestId)
 			if not bestId then
 				state.autoQuestId = nil
@@ -580,7 +591,7 @@ local function OnUpdate(_, elapsed)
 			if angle and dist then
 				-- With a terrain route, aim along the route instead of straight at the target.
 				local lx, ly = ns.Trail.Lookahead()
-				if lx and dist > ARRIVE_YARDS then
+				if lx and dist > ARRIVE_YARDS and not (target.friend and dist < FRIEND_DIRECT_YARDS) then
 					local routeAngle = HBD:GetWorldVector(instance, px, py, lx, ly)
 					angle = routeAngle or angle
 				end
@@ -690,10 +701,12 @@ local function OnUpdate(_, elapsed)
 		end
 		state.shownDistance = Approach(state.shownDistance, distance, 7, dt)
 		if state.arrived > 0.5 then
-			distanceText:SetText("You're here")
+			distanceText:SetText(target.friend and (target.name .. " is here") or "You're here")
 		else
 			distanceText:SetText(FormatDistance(state.shownDistance))
 		end
+	elseif target and target.unavailable then
+		distanceText:SetText("")
 	elseif target and not target.test then
 		distanceText:SetText(noHeading and "No heading available here" or "Not on this continent")
 	elseif state.status then
@@ -703,7 +716,12 @@ local function OnUpdate(_, elapsed)
 	end
 
 	local label
-	if target then
+	if target and target.friend then
+		label = ns.Friend.ColoredName(target.name, target.class)
+		if target.unavailable then
+			label = label .. ": location not available"
+		end
+	elseif target then
 		local name = target.todo or target.name
 		if target.turnIn and name and not target.todo then
 			name = "Turn in: " .. name
@@ -835,6 +853,7 @@ SlashCmdList.STARFALLTRAIL = function(input)
 			db[k] = v
 		end
 		db.relativePoint = nil
+		ns.Friend.Clear()
 		ApplyPosition()
 		ApplyLock()
 		ns.Menu.ApplyButton()
@@ -876,8 +895,29 @@ SlashCmdList.STARFALLTRAIL = function(input)
 		Print(db.autoFocus
 			and "auto focus on: with nothing focused in Questie, the arrow picks your closest quest."
 			or "auto focus off: the arrow only follows the quest you focus in Questie.")
+	elseif cmd == "friend" or cmd == "follow" then
+		arg = arg and strtrim(arg) or ""
+		local ok, result
+		if arg == "off" or arg == "stop" or arg == "clear" then
+			local _, name = ns.Friend.Get()
+			ns.Friend.Clear()
+			Print(name and ("no longer following " .. name .. ".") or "not following anyone.")
+			return
+		elseif arg ~= "" then
+			ok, result = ns.Friend.SetByName(arg)
+		elseif UnitExists("target") then
+			ok, result = ns.Friend.SetByUnit("target")
+		else
+			local _, name = ns.Friend.Get()
+			Print(name and ("following " .. name .. ". /sft friend off to stop.")
+				or "usage: /sft friend <name of a group member>, or target them and type /sft friend. /sft friend off to stop.")
+			return
+		end
+		Print(ok and ("following " .. result .. ". /sft friend off to stop.") or result)
 	elseif cmd == "probe" then
-		if arg == "live" then
+		if arg == "party" then
+			ns.ProbeParty()
+		elseif arg == "live" then
 			ns.ProbeLive()
 		elseif arg == "nav" then
 			ns.ProbeNav()
@@ -898,7 +938,8 @@ SlashCmdList.STARFALLTRAIL = function(input)
 	else
 		Print("focus a quest in Questie's tracker (right-click > Focus Quest) and the arrow points to it.")
 		Print("auto focus is " .. (db.autoFocus and "on" or "off") .. ": with nothing focused, it points at your closest quest.")
-		Print("/sft trail | arrow | text | auto | minimap | unlock | lock | scale <0.4-2.5> | reset | test")
+		Print("/sft friend <name> leads you to a group member instead (/sft friend off to stop).")
+		Print("/sft trail | arrow | text | auto | friend | minimap | unlock | lock | scale <0.4-2.5> | reset | test")
 	end
 end
 
@@ -918,6 +959,11 @@ events:SetScript("OnEvent", function(_, event, name)
 			if db[k] == nil then
 				db[k] = v
 			end
+		end
+		ns.Friend.Init(db)
+		ns.Friend.onChange = function()
+			state.lookupTimer = 0
+			ns.Menu.Refresh()
 		end
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		-- Load this continent's walkable-area map now, behind the loading screen, not mid-run.

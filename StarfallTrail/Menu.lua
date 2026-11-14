@@ -35,8 +35,14 @@ local SHAPES = {
 	["TRICORNER-BOTTOMRIGHT"] = { true, true, true, false },
 }
 
+local ROW_HEIGHT = 20
+local MAX_ROWS = 5 -- four party members, plus a followed raid member from another subgroup
+
 local button, panel
 local checks = {}
+local rows = {}
+local followEmpty
+local checksBottom, baseWidth
 
 local function PlayClick(on)
 	if SOUNDKIT and PlaySound then
@@ -49,7 +55,7 @@ end
 ---------------------------------------------------------------------------
 
 local function PlaceButton()
-	local angle = math.rad(ns.Settings.Get("minimapAngle") or 200)
+	local angle = math.rad(ns.Settings.Get("minimapAngle") or 270)
 	local x, y = math.cos(angle), math.sin(angle)
 	local quadrant = 1
 	if x < 0 then
@@ -147,6 +153,130 @@ local function RefreshChecks()
 	end
 end
 
+-- The "Follow" list: your party by name. Clicking a name leads the arrow to that person; clicking
+-- the highlighted name goes back to quests.
+local function RefreshFollow()
+	local list = ns.Friend.Roster("party")
+	local guid, name, class = ns.Friend.Get()
+	local listed = false
+	for _, entry in ipairs(list) do
+		listed = listed or entry.guid == guid
+	end
+	if guid and not listed then
+		-- Chosen by right-click or slash command from another raid subgroup: shown so it can be cleared here.
+		table.insert(list, 1, { guid = guid, name = name, class = class })
+	end
+	local width = baseWidth
+	for i, row in ipairs(rows) do
+		local entry = list[i]
+		row.entry = entry
+		if entry then
+			row.text:SetText(ns.Friend.ColoredName(entry.name, entry.class))
+			row.selected:SetShown(entry.guid == guid)
+			width = math.max(width, row.text:GetStringWidth() + 36)
+			row:Show()
+		else
+			row:Hide()
+		end
+	end
+	followEmpty:SetShown(#list == 0)
+	local shown = math.max(1, math.min(#list, MAX_ROWS))
+	panel:SetSize(width, -checksBottom + 24 + shown * ROW_HEIGHT + 10)
+	for _, row in ipairs(rows) do
+		row:SetWidth(width - 16)
+	end
+end
+
+local function CreateFollowList()
+	local title = panel:CreateFontString(nil, "OVERLAY")
+	title:SetFont(FONT, 12, "OUTLINE")
+	title:SetTextColor(1, 0.82, 0.3)
+	title:SetText("Follow a party member")
+	title:SetPoint("TOPLEFT", 12, checksBottom - 6)
+	baseWidth = math.max(baseWidth, title:GetStringWidth() + 24)
+
+	followEmpty = panel:CreateFontString(nil, "OVERLAY")
+	followEmpty:SetFont(FONT, 12, "")
+	followEmpty:SetTextColor(0.6, 0.6, 0.6)
+	followEmpty:SetText("Not in a party")
+	followEmpty:SetPoint("TOPLEFT", 16, checksBottom - 28)
+
+	for i = 1, MAX_ROWS do
+		local row = CreateFrame("Button", nil, panel)
+		row:SetHeight(ROW_HEIGHT)
+		row:SetPoint("TOPLEFT", 8, checksBottom - 24 - (i - 1) * ROW_HEIGHT)
+
+		row.selected = row:CreateTexture(nil, "BACKGROUND")
+		row.selected:SetAllPoints()
+		row.selected:SetColorTexture(1, 0.82, 0.3, 0.28)
+
+		local hover = row:CreateTexture(nil, "HIGHLIGHT")
+		hover:SetAllPoints()
+		hover:SetColorTexture(1, 1, 1, 0.12)
+
+		row.text = row:CreateFontString(nil, "OVERLAY")
+		row.text:SetFont(FONT, 12, "")
+		row.text:SetPoint("LEFT", 8, 0)
+
+		row:SetScript("OnClick", function(self)
+			local entry = self.entry
+			if not entry then
+				return
+			end
+			local following = ns.Friend.Get() == entry.guid
+			if following then
+				ns.Friend.Clear()
+			else
+				ns.Friend.Set(entry.guid, entry.name, entry.class)
+			end
+			PlayClick(not following)
+		end)
+		row:Hide()
+		rows[i] = row
+	end
+end
+
+-- "Starfall Trail: follow" in the right-click menu of group members. This file's `Menu` is the
+-- addon's own table, so the game's menu API is reached through _G. Clients without it skip this.
+local function AddUnitMenus()
+	local api = _G.Menu
+	if not (type(api) == "table" and api.ModifyMenu) then
+		return
+	end
+	local function Find(context)
+		local roster = ns.Friend.Roster("group")
+		if context.unit and UnitExists(context.unit) then
+			local guid = UnitGUID(context.unit)
+			for _, entry in ipairs(roster) do
+				if entry.guid == guid then
+					return entry
+				end
+			end
+			return nil
+		end
+		return context.name and ns.Friend.MatchName(roster, context.name) or nil
+	end
+	local function Add(_, root, context)
+		-- Unit data can be hidden in combat; then the entry is simply left out.
+		local ok, entry = pcall(Find, context or {})
+		if not (ok and entry) then
+			return
+		end
+		local following = ns.Friend.Get() == entry.guid
+		root:CreateDivider()
+		root:CreateButton(following and "Starfall Trail: stop following" or "Starfall Trail: follow", function()
+			if following then
+				ns.Friend.Clear()
+			else
+				ns.Friend.Set(entry.guid, entry.name, entry.class)
+			end
+		end)
+	end
+	for _, tag in ipairs({ "MENU_UNIT_PARTY", "MENU_UNIT_RAID_PLAYER", "MENU_UNIT_RAID", "MENU_UNIT_PLAYER" }) do
+		pcall(api.ModifyMenu, tag, Add)
+	end
+end
+
 -- Opens toward the middle of the screen from wherever the button sits.
 local function AnchorPanel()
 	panel:ClearAllPoints()
@@ -209,7 +339,9 @@ local function CreatePanel()
 		checks[option.key] = check
 		y = y - 24
 	end
-	panel:SetSize(math.max(150, width + 52), -y + 10)
+	checksBottom, baseWidth = y, math.max(150, width + 52)
+	CreateFollowList()
+	RefreshFollow()
 
 	-- Escape closes it, like other game windows.
 	if UISpecialFrames then
@@ -240,6 +372,7 @@ function Menu.Toggle()
 		return
 	end
 	RefreshChecks()
+	RefreshFollow()
 	AnchorPanel()
 	panel:Show()
 end
@@ -247,6 +380,7 @@ end
 function Menu.Refresh()
 	if panel and panel:IsShown() then
 		RefreshChecks()
+		RefreshFollow()
 	end
 end
 
@@ -265,5 +399,6 @@ function Menu.Init()
 	end
 	CreateButton()
 	CreatePanel()
+	AddUnitMenus()
 	Menu.ApplyButton()
 end

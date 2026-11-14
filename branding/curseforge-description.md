@@ -13,7 +13,8 @@ Focus a quest in Questie and Starfall Trail lights the way: a soft cloud of drif
 - **Stays out of the way when you get there.** In a quest area the arrow and the trail fade out and the text glides up, then everything comes back when you leave.
 - **Auto focus:** with nothing focused, it guides you to your closest quest.
 - **Corpse runs:** when you die, it leads you back to your body.
-- **Minimap button** with a small menu to turn the trail, the arrow and the text on or off.
+- **Find your friend:** pick a party member and the arrow and the trail lead you to them instead of to a quest, and keep up as they move. Pick them from the minimap menu, by right-clicking them, or with `/sft friend <name>`.
+- **Minimap button** with a small menu to turn the trail, the arrow and the text on or off, and to pick who to follow.
 
 ## Requirements
 
@@ -29,6 +30,7 @@ The walkable-area maps for each continent are separate load-on-demand addons in 
 - `/sft trail`: trail on or off
 - `/sft arrow`, `/sft text`: arrow, or the text under it, on or off
 - `/sft auto`: auto focus on the closest quest
+- `/sft friend <name>`: follow a group member (or target them and type `/sft friend`); `/sft friend off` to stop
 - `/sft unlock`, `/sft lock`: move the arrow
 - `/sft scale 0.4-2.5`: arrow size
 - `/sft minimap`: show or hide the minimap button
@@ -41,4 +43,5 @@ The walkable-area maps are computed from the game's own terrain and buildings wi
 ## Known limits
 
 - Routes cover Kalimdor and the Eastern Kingdoms. In other places (dungeons, islands without map data) the arrow still points straight at the target and the trail is off.
+- Following a party member works outdoors only: the game hides positions inside dungeons and raids, and while they are on another continent the arrow cannot point to them.
 - Boats, zeppelins and flight paths are not part of routes yet.

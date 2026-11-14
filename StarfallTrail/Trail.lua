@@ -1104,6 +1104,7 @@ function Trail.Update(dt, target, enabled)
 	local HBD = ns.HBD
 	if not (enabled and target and target.x and HBD and C_Navigation and UiMapPoint) then
 		s.route = nil
+		s.routeKey = nil
 		Nav.Clear()
 		Hide()
 		return
@@ -1111,6 +1112,7 @@ function Trail.Update(dt, target, enabled)
 	local rawX, rawY, instance = HBD:GetPlayerWorldPosition()
 	if not rawX or instance ~= target.instance or not Nav.GridFor(rawX, rawY, instance) then
 		s.route = nil
+		s.routeKey = nil
 		s.fx = nil
 		s.surfaceRef = nil
 		Hide()
@@ -1127,8 +1129,24 @@ function Trail.Update(dt, target, enabled)
 	s.cameraTime = s.time
 
 	-- Route management.
+	-- Switching to or from a followed person drops the old route and any search still running for
+	-- it at once. Otherwise, when no route to the new target can be found, the old one would stay
+	-- on the ground and keep steering the arrow.
+	if s.targetKey ~= target.key then
+		if target.friend or s.targetFriend then
+			s.route = nil
+			s.routeKey = nil
+			Nav.Clear()
+			GhostAll()
+		end
+		s.targetKey, s.targetFriend = target.key, target.friend
+	end
+	-- A followed person keeps moving: re-plans to them must not replay the sweep-out every time.
+	-- True only when the route now shown was already planned for this same person.
+	local sameFriend = target.friend and s.routeKey == target.key
 	if Nav.route and Nav.route ~= s.route then
 		s.route = Nav.route
+		s.routeKey = target.key
 		s.progress = 1
 		-- Ground height of every route point, for projecting the trail onto the terrain.
 		local heights = {}
@@ -1140,11 +1158,14 @@ function Trail.Update(dt, target, enabled)
 			s.route.heights = heights
 		end
 		GhostAll()
-		s.reveal = 0   -- a re-route sweeps out from you too, so the new path builds instead of popping in
+		if not sameFriend then
+			s.reveal = 0   -- a re-route sweeps out from you too, so the new path builds instead of popping in
+		end
 	end
 	s.requestTimer = s.requestTimer - dt
 	local route = s.route
-	local needRoute = not route or Distance(route.goalX, route.goalY, target.x, target.y) > 3
+	-- goalSlack: how far a moving target may drift from the route's end before a new search.
+	local needRoute = not route or Distance(route.goalX, route.goalY, target.x, target.y) > (target.goalSlack or 3)
 	if route and not needRoute then
 		needRoute = UpdateProgress(route.points, px, py) > OFF_ROUTE_YARDS
 	end
@@ -1160,7 +1181,9 @@ function Trail.Update(dt, target, enabled)
 	-- A new target sweeps the trail out from you; re-routes to the same target do not.
 	if not s.revealGoalX or Distance(route.goalX, route.goalY, s.revealGoalX, s.revealGoalY) > 3 then
 		s.revealGoalX, s.revealGoalY = route.goalX, route.goalY
-		s.reveal = 0
+		if not sameFriend then
+			s.reveal = 0
+		end
 	end
 	-- Eased: the path builds out quickly near you and slows gently as it reaches its far end.
 	local full = AHEAD_YARDS + SPACING
